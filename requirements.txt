@@ -60,3 +60,4 @@ tzdata==2025.2
 urllib3==2.3.0
 utilsforecast==0.2.12
 watchdog==6.0.0
+seaborn
