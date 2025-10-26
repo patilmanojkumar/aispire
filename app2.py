@@ -376,10 +376,16 @@ if uploaded_file is not None:
                 
                 # CV Performance metrics
                 st.subheader("📊 Cross-Validation Performance Metrics")
-                cv_eval_styled = st.session_state.cv_evaluation.style.background_gradient(
-                    cmap='RdYlGn_r', axis=1
-                ).format("{:.3f}")
-                st.dataframe(cv_eval_styled, use_container_width=True)
+                cv_eval_df = st.session_state.cv_evaluation.copy()
+                numeric_cols = cv_eval_df.select_dtypes(include=[np.number]).columns
+                
+                if len(numeric_cols) > 0:
+                    cv_eval_styled = cv_eval_df.style.background_gradient(
+                        cmap='RdYlGn_r', axis=1, subset=numeric_cols
+                    ).format("{:.3f}", subset=numeric_cols)
+                    st.dataframe(cv_eval_styled, use_container_width=True)
+                else:
+                    st.dataframe(cv_eval_df, use_container_width=True)
                 
                 st.markdown("---")
                 
@@ -434,10 +440,16 @@ if uploaded_file is not None:
                 
                 # Test set performance
                 st.subheader("📊 Test Set Performance Metrics")
-                eval_styled = st.session_state.evaluation_results.style.background_gradient(
-                    cmap='RdYlGn_r', axis=1
-                ).format("{:.3f}")
-                st.dataframe(eval_styled, use_container_width=True)
+                eval_df = st.session_state.evaluation_results.copy()
+                numeric_cols = eval_df.select_dtypes(include=[np.number]).columns
+                
+                if len(numeric_cols) > 0:
+                    eval_styled = eval_df.style.background_gradient(
+                        cmap='RdYlGn_r', axis=1, subset=numeric_cols
+                    ).format("{:.3f}", subset=numeric_cols)
+                    st.dataframe(eval_styled, use_container_width=True)
+                else:
+                    st.dataframe(eval_df, use_container_width=True)
                 
                 st.markdown("---")
                 
@@ -511,13 +523,23 @@ if uploaded_file is not None:
                         summary_data.append(model_metrics)
                     
                     summary_df = pd.DataFrame(summary_data)
+                    
+                    # Format summary with safe column detection
+                    format_dict = {
+                        'Mean Residual': '{:.3f}',
+                        'Std Residual': '{:.3f}',
+                        'Mean APE (%)': '{:.2f}',
+                        'RMSE': '{:.3f}'
+                    }
+                    
+                    # Only format columns that exist
+                    existing_format = {k: v for k, v in format_dict.items() if k in summary_df.columns}
+                    
                     st.dataframe(
-                        summary_df.style.background_gradient(cmap='RdYlGn_r', subset=['RMSE', 'Mean APE (%)']).format({
-                            'Mean Residual': '{:.3f}',
-                            'Std Residual': '{:.3f}',
-                            'Mean APE (%)': '{:.2f}',
-                            'RMSE': '{:.3f}'
-                        }),
+                        summary_df.style.background_gradient(
+                            cmap='RdYlGn_r', 
+                            subset=[col for col in ['RMSE', 'Mean APE (%)'] if col in summary_df.columns]
+                        ).format(existing_format),
                         use_container_width=True
                     )
                     
@@ -536,16 +558,22 @@ if uploaded_file is not None:
                         col.replace('_', ' ').title() for col in display_cols[2:]
                     ]
                     
-                    st.dataframe(
-                        comparison_display.style.format({
-                            col: '{:.3f}' for col in comparison_display.columns if col != 'Date'
-                        }).background_gradient(
+                    # Safe formatting for display
+                    numeric_display_cols = [col for col in comparison_display.columns if col != 'Date']
+                    format_dict = {col: '{:.3f}' for col in numeric_display_cols}
+                    
+                    styled_comparison = comparison_display.style.format(format_dict)
+                    
+                    # Add gradient only to residual and APE columns
+                    gradient_cols = [col for col in comparison_display.columns 
+                                   if 'Residual' in col or 'Ape' in col]
+                    if gradient_cols:
+                        styled_comparison = styled_comparison.background_gradient(
                             cmap='RdYlGn_r',
-                            subset=[col for col in comparison_display.columns if 'Residual' in col or 'Ape' in col]
-                        ),
-                        use_container_width=True,
-                        height=500
-                    )
+                            subset=gradient_cols
+                        )
+                    
+                    st.dataframe(styled_comparison, use_container_width=True, height=500)
                     
                     # Download button
                     st.markdown("---")
